@@ -26,7 +26,7 @@ spec:
         containers:
           - name: nginx
             image: anolis-registry.cn-zhangjiakou.cr.aliyuncs.com/openanolis/nginx:1.14.1-8.6
-            command: [ "sh","-c","sleep 10s; exit 1" ]
+#            command: [ "sh","-c","sleep 10s; exit 1" ]
             resources:
               limits:
                 cpu: "100m"

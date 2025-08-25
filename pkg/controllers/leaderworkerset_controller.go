@@ -138,13 +138,22 @@ func (r *LeaderWorkerSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		r.Record.Eventf(lws, corev1.EventTypeNormal, CreatingRevision, fmt.Sprintf("Creating revision with key %s for updated LWS", revisionutils.GetRevisionKey(revision)))
 	}
 
-	partition, replicas, err := r.rollingUpdateParameters(ctx, lws, leaderSts, revisionutils.GetRevisionKey(revision), lwsUpdated)
-	if err != nil {
-		log.Error(err, "Rolling partition error")
-		return ctrl.Result{}, err
-	}
+	var (
+		stsPartition int32
+		replicas     int32
+	)
 
-	if err := r.SSAWithStatefulset(ctx, lws, partition, replicas, revisionutils.GetRevisionKey(revision)); err != nil {
+	if lws.Spec.RolloutStrategy.Type == leaderworkerset.OnDeleteStrategyType {
+		replicas = *lws.Spec.Replicas
+		stsPartition = 0
+	} else {
+		stsPartition, replicas, err = r.rollingUpdateParameters(ctx, lws, leaderSts, revisionutils.GetRevisionKey(revision), lwsUpdated)
+		if err != nil {
+			log.Error(err, "Rolling partition error")
+			return ctrl.Result{}, err
+		}
+	}
+	if err := r.SSAWithStatefulset(ctx, lws, stsPartition, replicas, revisionutils.GetRevisionKey(revision)); err != nil {
 		if leaderSts == nil {
 			r.Record.Eventf(lws, corev1.EventTypeWarning, FailedCreate, fmt.Sprintf("Failed to create leader statefulset %s", lws.Name))
 		}
@@ -154,9 +163,9 @@ func (r *LeaderWorkerSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if leaderSts == nil {
 		// An event is logged to track sts creation.
 		r.Record.Eventf(lws, corev1.EventTypeNormal, GroupsProgressing, fmt.Sprintf("Created leader statefulset %s", lws.Name))
-	} else if !lwsUpdated && partition != *leaderSts.Spec.UpdateStrategy.RollingUpdate.Partition {
+	} else if !lwsUpdated && lws.Spec.RolloutStrategy.Type != leaderworkerset.OnDeleteStrategyType && stsPartition != *leaderSts.Spec.UpdateStrategy.RollingUpdate.Partition {
 		// An event is logged to track update progress.
-		r.Record.Eventf(lws, corev1.EventTypeNormal, GroupsUpdating, fmt.Sprintf("Updating replicas %d to %d", *leaderSts.Spec.UpdateStrategy.RollingUpdate.Partition, partition))
+		r.Record.Eventf(lws, corev1.EventTypeNormal, GroupsUpdating, fmt.Sprintf("Updating replicas %d to %d", *leaderSts.Spec.UpdateStrategy.RollingUpdate.Partition, stsPartition))
 	}
 
 	// Create headless service if it does not exist.
@@ -392,7 +401,12 @@ func (r *LeaderWorkerSetReconciler) updateConditions(ctx context.Context, lws *l
 	readyCount, updatedCount, readyNonBurstWorkerCount := 0, 0, 0
 	partitionedUpdatedNonBurstCount, partitionedCurrentNonBurstCount, partitionedUpdatedAndReadyCount := 0, 0, 0
 	noWorkerSts := *lws.Spec.LeaderWorkerTemplate.Size == 1
-	lwsPartition := *lws.Spec.RolloutStrategy.RollingUpdateConfiguration.Partition
+	var lwsPartition int32
+	if lws.Spec.RolloutStrategy.Type == leaderworkerset.OnDeleteStrategyType {
+		lwsPartition = 0
+	} else {
+		lwsPartition = *lws.Spec.RolloutStrategy.RollingUpdateConfiguration.Partition
+	}
 
 	// Iterate through all leaderPods.
 	for _, pod := range leaderPodList.Items {

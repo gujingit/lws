@@ -145,31 +145,33 @@ func (r *LeaderWorkerSetWebhook) generalValidate(obj runtime.Object) field.Error
 		allErrs = append(allErrs, field.Invalid(specPath.Child("replicas"), lws.Spec.Replicas, fmt.Sprintf("the product of replicas and worker replicas must not exceed %d", math.MaxInt32)))
 	}
 
-	maxUnavailable := lws.Spec.RolloutStrategy.RollingUpdateConfiguration.MaxUnavailable
-	maxUnavailablePath := specPath.Child("rolloutStrategy", "rollingUpdateConfiguration", "maxUnavailable")
-	if lws.Spec.RolloutStrategy.RollingUpdateConfiguration != nil {
-		allErrs = append(allErrs, validatePositiveIntOrPercent(maxUnavailable, maxUnavailablePath)...)
-		// This is aligned with Statefulset.
-		allErrs = append(allErrs, isNotMoreThan100Percent(maxUnavailable, maxUnavailablePath)...)
-	}
+	if lws.Spec.RolloutStrategy.Type == "" || lws.Spec.RolloutStrategy.Type == v1.RollingUpdateStrategyType {
+		maxUnavailable := lws.Spec.RolloutStrategy.RollingUpdateConfiguration.MaxUnavailable
+		maxUnavailablePath := specPath.Child("rolloutStrategy", "rollingUpdateConfiguration", "maxUnavailable")
+		if lws.Spec.RolloutStrategy.RollingUpdateConfiguration != nil {
+			allErrs = append(allErrs, validatePositiveIntOrPercent(maxUnavailable, maxUnavailablePath)...)
+			// This is aligned with Statefulset.
+			allErrs = append(allErrs, isNotMoreThan100Percent(maxUnavailable, maxUnavailablePath)...)
+		}
 
-	maxSurge := lws.Spec.RolloutStrategy.RollingUpdateConfiguration.MaxSurge
-	maxSurgePath := specPath.Child("rolloutStrategy", "rollingUpdateConfiguration", "maxSurge")
-	if lws.Spec.RolloutStrategy.RollingUpdateConfiguration != nil {
-		allErrs = append(allErrs, validatePositiveIntOrPercent(maxSurge, maxSurgePath)...)
-		allErrs = append(allErrs, isNotMoreThan100Percent(maxSurge, maxSurgePath)...)
-	}
-	maxUnavailableValue, err := intstr.GetScaledValueFromIntOrPercent(&maxUnavailable, int(*lws.Spec.Replicas), false)
-	if err != nil {
-		allErrs = append(allErrs, field.Invalid(maxUnavailablePath, maxUnavailable, "invalid value"))
-	}
-	maxSurgeValue, err := intstr.GetScaledValueFromIntOrPercent(&maxSurge, int(*lws.Spec.Replicas), true)
-	if err != nil {
-		allErrs = append(allErrs, field.Invalid(maxSurgePath, maxSurge, "invalid value"))
-	}
-	if maxUnavailableValue == 0 && maxSurgeValue == 0 && *lws.Spec.Replicas != 0 {
-		// Both MaxSurge and MaxUnavailable cannot be zero.
-		allErrs = append(allErrs, field.Invalid(maxUnavailablePath, maxUnavailable, "must not be 0 when `maxSurge` is 0"))
+		maxSurge := lws.Spec.RolloutStrategy.RollingUpdateConfiguration.MaxSurge
+		maxSurgePath := specPath.Child("rolloutStrategy", "rollingUpdateConfiguration", "maxSurge")
+		if lws.Spec.RolloutStrategy.RollingUpdateConfiguration != nil {
+			allErrs = append(allErrs, validatePositiveIntOrPercent(maxSurge, maxSurgePath)...)
+			allErrs = append(allErrs, isNotMoreThan100Percent(maxSurge, maxSurgePath)...)
+		}
+		maxUnavailableValue, err := intstr.GetScaledValueFromIntOrPercent(&maxUnavailable, int(*lws.Spec.Replicas), false)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(maxUnavailablePath, maxUnavailable, "invalid value"))
+		}
+		maxSurgeValue, err := intstr.GetScaledValueFromIntOrPercent(&maxSurge, int(*lws.Spec.Replicas), true)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(maxSurgePath, maxSurge, "invalid value"))
+		}
+		if maxUnavailableValue == 0 && maxSurgeValue == 0 && *lws.Spec.Replicas != 0 {
+			// Both MaxSurge and MaxUnavailable cannot be zero.
+			allErrs = append(allErrs, field.Invalid(maxUnavailablePath, maxUnavailable, "must not be 0 when `maxSurge` is 0"))
+		}
 	}
 
 	if lws.Spec.LeaderWorkerTemplate.SubGroupPolicy != nil {
