@@ -359,6 +359,11 @@ func constructWorkerStatefulSetApplyConfiguration(leaderPod corev1.Pod, lws lead
 			WithSelector(metaapplyv1.LabelSelector().
 				WithMatchLabels(selectorMap))).
 		WithLabels(labelMap)
+
+	if lws.Spec.RolloutStrategy.Type == leaderworkerset.OnDeleteStrategyType {
+		statefulSetConfig.Spec.WithUpdateStrategy(appsapplyv1.StatefulSetUpdateStrategy().WithType(appsv1.OnDeleteStatefulSetStrategyType))
+	}
+
 	return statefulSetConfig, nil
 }
 

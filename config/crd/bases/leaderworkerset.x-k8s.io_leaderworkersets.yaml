@@ -16469,6 +16469,7 @@ spec:
                       “RollingUpdate” for now.
                     enum:
                     - RollingUpdate
+                    - OnDelete
                     type: string
                 required:
                 - type

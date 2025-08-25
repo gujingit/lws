@@ -1,14 +1,16 @@
 apiVersion: leaderworkerset.x-k8s.io/v1
 kind: LeaderWorkerSet
 metadata:
-  name: leaderworkerset-multi-template
+  name: leaderworkerset-on-delete-strategy
 spec:
+  rolloutStrategy:
+    type: OnDelete
   replicas: 1
   leaderWorkerTemplate:
     leaderTemplate:
       spec:
         containers:
-          - name: nginx2
+          - name: nginx
             image: anolis-registry.cn-zhangjiakou.cr.aliyuncs.com/openanolis/nginx:1.14.1-8.6
             resources:
               limits:

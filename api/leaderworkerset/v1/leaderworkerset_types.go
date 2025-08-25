@@ -174,9 +174,9 @@ type LeaderWorkerTemplate struct {
 // RolloutStrategy defines the strategy that the leaderWorkerSet controller
 // will use to perform replica updates.
 type RolloutStrategy struct {
-	// Type defines the rollout strategy, it can only be “RollingUpdate” for now.
+	// Type defines the rollout strategy
 	//
-	// +kubebuilder:validation:Enum={RollingUpdate}
+	// +kubebuilder:validation:Enum={RollingUpdate,OnDelete}
 	// +kubebuilder:default=RollingUpdate
 	Type RolloutStrategyType `json:"type"`
 
@@ -301,6 +301,11 @@ const (
 	// by RollingUpdateConfiguration), the latter one will not start the update until the
 	// former one(leader+workers) is ready.
 	RollingUpdateStrategyType RolloutStrategyType = "RollingUpdate"
+
+	// OnDeleteStrategyType indicates that pods are recreated from the StatefulSetSpec
+	// when they are manually deleted. When a scale operation is performed with
+	// this strategy,specification version indicated by the StatefulSet's currentRevision.
+	OnDeleteStrategyType RolloutStrategyType = "OnDelete"
 )
 
 type RestartPolicyType string

@@ -751,6 +751,16 @@ func constructLeaderStatefulSetApplyConfiguration(lws *leaderworkerset.LeaderWor
 
 	podTemplateApplyConfiguration.WithAnnotations(podAnnotations)
 
+	// sts updateStrategy
+	var stsUpdateStrategy *appsapplyv1.StatefulSetUpdateStrategyApplyConfiguration
+	if lws.Spec.RolloutStrategy.Type == leaderworkerset.OnDeleteStrategyType {
+		stsUpdateStrategy = appsapplyv1.StatefulSetUpdateStrategy().WithType(appsv1.OnDeleteStatefulSetStrategyType)
+	} else {
+		stsUpdateStrategy = appsapplyv1.StatefulSetUpdateStrategy().WithType(appsv1.StatefulSetUpdateStrategyType(lws.Spec.RolloutStrategy.Type)).WithRollingUpdate(
+			appsapplyv1.RollingUpdateStatefulSetStrategy().WithMaxUnavailable(lws.Spec.RolloutStrategy.RollingUpdateConfiguration.MaxUnavailable).WithPartition(partition),
+		)
+	}
+
 	// construct statefulset apply configuration
 	statefulSetConfig := appsapplyv1.StatefulSet(lws.Name, lws.Namespace).
 		WithSpec(appsapplyv1.StatefulSetSpec().
@@ -758,9 +768,7 @@ func constructLeaderStatefulSetApplyConfiguration(lws *leaderworkerset.LeaderWor
 			WithReplicas(replicas).
 			WithPodManagementPolicy(appsv1.ParallelPodManagement).
 			WithTemplate(&podTemplateApplyConfiguration).
-			WithUpdateStrategy(appsapplyv1.StatefulSetUpdateStrategy().WithType(appsv1.StatefulSetUpdateStrategyType(lws.Spec.RolloutStrategy.Type)).WithRollingUpdate(
-				appsapplyv1.RollingUpdateStatefulSetStrategy().WithMaxUnavailable(lws.Spec.RolloutStrategy.RollingUpdateConfiguration.MaxUnavailable).WithPartition(partition),
-			)).
+			WithUpdateStrategy(stsUpdateStrategy).
 			WithSelector(metaapplyv1.LabelSelector().
 				WithMatchLabels(map[string]string{
 					leaderworkerset.SetNameLabelKey:     lws.Name,
